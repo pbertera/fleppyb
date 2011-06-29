@@ -1,7 +1,7 @@
 Fleppyb (Flexible PowerDNS Python Backend)
 ==========================================
 
-Fleppyb è [un pipe backend per Powerdns][1]. In breve si occupa di ricevere la query dal processo master di PowerDNS e, in base a dei criteri di matching effettuati sui parametri della query, di risolvere la query.</p> 
+Fleppyb è [un pipe backend per Powerdns][1]. In breve si occupa di ricevere la query dal processo master di PowerDNS e, in base a dei criteri di matching effettuati sui parametri della query, di risolvere la query. 
 I parametri della query su cui viene effettuato il match sono quelli offerti dal protocollo di **PipeBackend** di PowebDNS e sono:
 
 **Query Name:** il nome per qui si sta facendola query, ad esempio la query:
@@ -83,13 +83,13 @@ Esempi
 
 Questa sezione verrà valutata per prima e verrà utilizzata per la risoluzione per tutte le query inverse (tutti nomi che finiscono per in-addr.arpa) es:
 
-   dig @192.168.2.20 -x 192.168.3.10
-   
-   ;; QUESTION SECTION:
-   ;20.2.168.192.in-addr.arpa.	IN	PTR
-   
-   ;; ANSWER SECTION:
-   20.2.168.192.in-addr.arpa. 2400	IN	PTR	host.example.com.
+    dig @192.168.2.20 -x 192.168.3.10
+    
+    ;; QUESTION SECTION:
+    ;20.2.168.192.in-addr.arpa.	IN	PTR
+    
+    ;; ANSWER SECTION:
+    20.2.168.192.in-addr.arpa. 2400	IN	PTR	host.example.com.
 
 Query resolution
 ================
@@ -104,13 +104,16 @@ All'interno della sezioni vanno definiti parametri per effettuare la risoluzione
 **base:** ldap base per la query es: **dc=example,dc=com**  
 **bind_dn: **dn con cui effettuare il bind (se necessario) es: **cn=admin,dc=example,dc=com**  
 **bind_password:** password per il bind (se necessario)  
-***_attribute:** mapping degli attributi ldap, es **A_attribute= aRecord** definisce un mapping tra la entry dns **A** e l'attributo ldap **aRecord**. Esempi:  
-   MX_attribute = MxRecord  
-   NS_attribute = nSRecord  
-   TTL_attribute = dNSTTL  
-   SOA_attribute = sOARecord  
-   CNAME_attribute = cNAMERecord  
-   TXT_attribute = tXTRecord  
+***_attribute:** mapping degli attributi ldap, es **A_attribute=aRecord** definisce un mapping tra la entry dns **A** e l'attributo ldap **aRecord**. 
+
+**Esempi:**
+    MX_attribute = MxRecord  
+    NS_attribute = nSRecord  
+    TTL_attribute = dNSTTL  
+    SOA_attribute = sOARecord  
+    CNAME_attribute = cNAMERecord  
+    TXT_attribute = tXTRecord  
+
 **TTL_default:** il TTL da restiture di default (se non è specificato nell'attributo definito da TTL_attribute)  
 **query**:  il query filter con cui effettuare la query ldap es: **(&(objectClass=extensibleObject)(associatedDomain=%(qname)s))**  
 **bind:** definisce se effettuare il bind oppure fare una query ldap anonima, puo' essere **False** o **True**  
@@ -138,6 +141,239 @@ Ocorre aggiungere al file di configurazione di PowerDNS (**/etc/powerdns/pdns.co
 **pipe-command** definisce il path di fleppyb.py  
 **pipebackend-abi-version=2** definisce la versione del protocollo pipebackend da utilizzare 
 
+Esempi
+======
+
+Implementazione delle viste
+---------------------------
+
+Per le query proveninenti dalla subnet 192.168.2.0/24 viene effettuato il lookup ldap nel base **dc=internal,dc=example,dc=com**
+il resto delle query vengono risolte cercando nel base **dc=external,dc=example,dc=com**
+Di fondamentale importanza le priorità nel file di configurazione.
+
+**fleppyb.ini**
+
+    [DEFAULT]
+    ldap_uri=ldap://localhost
+    A_attribute=aRecord
+    MX_attribute = MxRecord
+    NS_attribute = nSRecord
+    TTL_attribute = dNSTTL
+    TTL_default = 2400
+    SOA_attribute = sOARecord
+    CNAME_attribute = cNAMERecord
+    base = dc=example,dc=com
+    query = (&(objectClass=domainRelatedObject)(associatedDomain=%(qname)s))
+    
+    [2:.*:*:0.0.0.0/0:0.0.0.0/0]
+    TTL_attribute = drink
+    base = dc=external,dc=example,dc=com
+    query = (dc=%(qname)s)
+    backend=ldap
+    bind=False
+    
+    [1:.*:*:192.168.2.50:0.0.0.0/0]
+    TTL_attribute = drink
+    base = dc=internal,dc=example,dc=com
+    query = (dc=%(qname)s)
+    backend=ldap
+    bind=False
+
+**Database ldap (base dc=external,dc=example,dc=com):**
+
+    dn: dc=external,dc=example,dc=com
+    dc: external
+    objectClass: top
+    objectClass: dcObject
+    objectClass: organization
+    o: 2v
+    
+    dn: dc=example.com,dc=external,dc=example,dc=com
+    sOARecord: ns1.example.com. dns-admin.example.com. 1446303 7200 1800 1209600 300
+    dc: example.com
+    objectClass: dNSDomain
+    objectClass: domain
+    objectClass: top
+    nSRecord: ns1.example.com.
+    nSRecord: ns2.example.com.
+    
+    dn: dc=ns1.example.com,dc=external,dc=example,dc=com
+    dc: ns1.example.com
+    objectClass: dcObject
+    objectClass: top
+    objectClass: organization
+    objectClass: extensibleObject
+    o: example.com
+    aRecord: 83.102.11.30
+    
+    dn: dc=ns2.example.com,dc=external,dc=example,dc=com
+    dc: ns2.example.com
+    objectClass: dcObject
+    objectClass: top
+    objectClass: organization
+    objectClass: extensibleObject
+    o: example.com
+    aRecord: 83.102.11.31
+    
+    dn: dc=www.example.com,dc=external,dc=example,dc=com
+    dc: www.example.com
+    cNAMERecord: fast.example.com
+    objectClass: dcObject
+    objectClass: top
+    objectClass: organization
+    objectClass: extensibleObject
+    o: example.com
+    
+    dn: dc=fast.example.com,dc=external,dc=example,dc=com
+    dc: fast.example.com
+    drink: 60
+    objectClass: dcObject
+    objectClass: top
+    objectClass: organization
+    objectClass: extensibleObject
+    o: example.com
+    aRecord: 83.102.11.32
+
+**Dadabase ldap (base dc=internal,dc=example,dc=com)**
+
+    dn: dc=internal,dc=example,dc=com
+    dc: internal
+    objectClass: top
+    objectClass: dcObject
+    objectClass: organization
+    o: 2v
+    
+    dn: dc=example.com,dc=internal,dc=example,dc=com
+    sOARecord: ns1.example.com. dns-admin.example.com. 1446303 7200 1800 1209600 300
+    dc: example.com
+    objectClass: dNSDomain
+    objectClass: domain
+    objectClass: top
+    nSRecord: ns1.example.com.
+    nSRecord: ns2.example.com.
+    
+    dn: dc=ns1.example.com,dc=internal,dc=example,dc=com
+    dc: ns1.example.com
+    objectClass: dcObject
+    objectClass: top
+    objectClass: organization
+    objectClass: extensibleObject
+    o: example.com
+    aRecord: 192.168.101.2
+    
+    dn: dc=ns2.example.com,dc=internal,dc=example,dc=com
+    dc: ns2.example.com
+    objectClass: dcObject
+    objectClass: top
+    objectClass: organization
+    objectClass: extensibleObject
+    o: example.com
+    aRecord: 192.168.101.1
+    
+    dn: dc=www.example.com,dc=internal,dc=example,dc=com
+    dc: www.example.com
+    cNAMERecord: fast.example.com
+    objectClass: dcObject
+    objectClass: top
+    objectClass: organization
+    objectClass: extensibleObject
+    o: example.com
+    
+    dn: dc=fast.example.com,dc=internal,dc=example,dc=com
+    dc: fast.example.com
+    drink: 60
+    objectClass: dcObject
+    objectClass: top
+    objectClass: organization
+    objectClass: extensibleObject
+    o: example.com
+    aRecord: 192.168.101.3
+
+**Query da ip non nella subnet 192.168.2.0/24**
+
+    dig @192.168.2.20 -b 192.168.3.20 www.example.com
+    
+    ;; QUESTION SECTION:
+    ;www.example.com.               IN      A
+    
+    ;; ANSWER SECTION:
+    www.example.com.        2400    IN      CNAME   fast.example.com.
+    fast.example.com.       60      IN      A       83.102.11.32
+
+**Query da ip nella subnet 192.168.2.0/24**
+
+    dig @192.168.2.20 -b 192.168.2.50 www.example.com
+    
+    ;; QUESTION SECTION:
+    ;www.example.com.               IN      A
+    
+    ;; ANSWER SECTION:
+    www.example.com.        2400    IN      CNAME   fast.example.com.
+    fast.example.com.       60      IN      A       192.168.101.3
+
+Reverse zone
+------------
+
+se la query è di tipo ANY o PTR e richiede un nome che finisce in in-addr.arpa
+il formatter specifier %(rqname)s viene risolto con l'ip dell'oggetto richiesto.
+
+Es:
+
+**dig -t ANY -x 192.168.2.20**
+
+effettua una query di tipo ANY per il nome 20.2.168.192.in-addr.arpa 
+**%(rqname)s viene risolto con 192.168.2.20**
+
+Se la query non è di tipo ANY o PTR o la richiesta non è per un *in-addr.arpa rqname è vuoto
+
+**fleppyb.ini**
+
+    [DEFAULT]
+    ldap_uri=ldap://localhost
+    ;bind_dn=cn=admin,dc=example,dc=com
+    ;bind_password=changeme
+    A_attribute = aRecord
+    MX_attribute = MxRecord
+    NS_attribute = nSRecord
+    TTL_attribute = dNSTTL
+    ; the default value for TTL
+    TTL_default = 2400
+    SOA_attribute = sOARecord
+    CNAME_attribute = cNAMERecord
+    base = dc=example,dc=com
+    query = (&(objectClass=extensibleObject)(associatedDomain=%(qname)s))
+    
+    [2:.*:*:0.0.0.0/0:0.0.0.0/0]
+    base = dc=netconf,dc=example,dc=com
+    query = (&(objectclass=extensibleObject)(associatedDomain=%(qname)s))
+    backend=ldap
+    bind=False
+    autogen_ptr=True
+    
+    [1:.*.in-addr\.arpa:*:0.0.0.0/0:0.0.0.0/0]
+    base = dc=netconf,dc=example,dc=com
+    query = (&(objectclass=extensibleObject)(arecord=%(rqname)s))
+    backend=ldap
+    bind=False
+    PTR_attribute=associatedDomain
+
+**Reverse query:**   
+
+    dig -x 192.168.2.20)
+    
+   ;; QUESTION SECTION:
+    ;20.2.168.192.in-addr.arpa.     IN      PTR
+    
+    ;; ANSWER SECTION:
+    20.2.168.192.in-addr.arpa. 2400 IN      PTR     www.example.com.
+
+PowerDNS e caching
+==================
+
+Se si configura fleppyb in modo da rispondere in modi diversi per lo stesso query name (ad. es. configurazione con le viste) occorre disabilitare la cache delle query in PowerDNS configurando i parametri query-cache-ttl e negquery-cache-ttl a 0.
+Il parametro cache-ttl puo' essere configurato a piacere: esegue lo store nella cache secondo tutti iparametri della query
+
+Testing
 
 
  [1]: http://doc.powerdns.com/backends-detail.html#pipebackend
