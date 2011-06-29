@@ -1,4 +1,3 @@
-==========================================
 Fleppyb (Flexible PowerDNS Python Backend)
 ==========================================
 
@@ -7,31 +6,30 @@ I parametri della query su cui viene effettuato il match sono quelli offerti dal
 
 **Query Name:** il nome per qui si sta facendola query, ad esempio la query:
 
-   dig @192.168.2.20 www.google.it
+    dig @192.168.2.20 www.google.it
 
 il Query Name sarà www.google.it
 
 **Query Type:** il tipo di query effettuata, ovvero il record che si sta chiedendo, ad esempio:
 
-   dig @192.168.2.20 -t MX google.it
+    dig @192.168.2.20 -t MX google.it
 
 il Query Type sarà **MX**
 
 **Remote IP:** l'indirizzo ip del richiedente della query, ad esempio:
 
-   dig -b 192.168.3.11 @192.168.2.20 -t MX google.it
+    dig -b 192.168.3.11 @192.168.2.20 -t MX google.it
 
 il Remote IP sarà **192.168.3.11**
 
 **Local IP:** l'indirizzo del server a cui viene richiesta la query, ad esempio:
 
-   dig @192.168.2.20 www.google.it
+    dig @192.168.2.20 www.google.it
 
 il Local IP sarà **192.168.2.20**
 
 Tramite il backend fleppyb è possibile implementare le viste su PowerDNS oppure qualsiasi altra configurazione nella risoluzione delle query
 
-==============
 Configurazione
 ==============
 
@@ -41,9 +39,8 @@ Ci sono 2 tipi di configurazioni di effettuare:
 2. Configurare i Matching
 3. Configurare PowerDNS
 
-^^^^^^^^^^^^^^^^^^^^^^
 Configurare fleppyb.py
-^^^^^^^^^^^^^^^^^^^^^^
+----------------------
 
 Per la prima occorre editare il file fleppyb.py e modificare le seguenti variabili:
 
@@ -52,9 +49,8 @@ Per la prima occorre editare il file fleppyb.py e modificare le seguenti variabi
 * **PARSE_CONFIG_ONCE:** rileggi il file sopra ad ogni query (valori possibili: True o False) oppure solo allo start. L'impostazione a True potrebbe influire sulle performance, se a False ad ogni modifica del file di match occorre riavviare PowerDNS.
 * **LOGFILE:** il file di log di fleppy: NB: powerdns deve poter scrivere questo file
 
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Configurare i query matching
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------
 
 Il file di match (definito dalla variabile `CONFIG_FILE`) ha la sintassi di un file .ini: definisce delle sezioni e per ogni sezione vengono definite delle variabili.
 
@@ -74,9 +70,8 @@ in cui:
 * **REMOTE_IP:** questo valore viene confrontato con l'ip del richiedente, puo' essere un indirizzo ip oppure una subnet CIDR (es: 192.168.2.0/24)
 * **LOCAL_IP:** viene confrontato con l'ip del server a cui viene fatta la richiesta, il formato è come il valore precedente
 
-******
 Esempi
-******
+-----
 
 **[1:.*.in-addr\.arpa$:*:0.0.0.0/0:0.0.0.0/0]** Una sezione con questo nome ha:
 
@@ -96,7 +91,6 @@ Questa sezione verrà valutata per prima e verrà utilizzata per la risoluzione 
    ;; ANSWER SECTION:
    20.2.168.192.in-addr.arpa. 2400	IN	PTR	host.example.com.
 
-================
 Query resolution
 ================
 
