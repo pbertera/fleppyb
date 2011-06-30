@@ -375,5 +375,9 @@ Il parametro cache-ttl puo' essere configurato a piacere: esegue lo store nella 
 
 Testing
 
+è possibile testare a mano fleppy.py dandogli in pasto le query a mano:
+
+    echo -ne "HELO\nQ\t20.2.168.192.in-addr.arpa\tIN\tANY\t-1\t192.168.3.13\t0.0.0.0" | /etc/powerdns/fleppyb/fleppyb.py
+
 
  [1]: http://doc.powerdns.com/backends-detail.html#pipebackend
