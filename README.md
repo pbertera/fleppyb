@@ -97,12 +97,12 @@ Query resolution
 **Query resolution:**</p> 
 All'interno della sezioni vanno definiti parametri per effettuare la risoluzione, i parametri possono essere:
 
-**backend:** attualmente puo' essere solo **ldap** o **delay**, specifica quale backend fleppyb deve utilizzare per la risoluzione della query
+**backend:** attualmente puo' essere solo **ldap** o **slow**, specifica quale backend fleppyb deve utilizzare per la risoluzione della query
 
-DELAY Backend
+SLOW Backend
 =============
-Usando il backend **delay** il backend aspetterà un delay impostato e poi risponderà con un not found.
-**delay:** delay espresso in secondi prima di rispondere, si possono usare dei decimali, es.: 0.673 oppure generare un delay random: random:0.5:30 
+Usando il backend **slow** il backend aspetterà un delay impostato e poi risponderà con un not found.
+**slow:** delay espresso in secondi prima di rispondere, si possono usare dei decimali, es.: 0.673 oppure generare un delay random: random:0.5:30 
 
 LDAP Backend
 ============
