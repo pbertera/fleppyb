@@ -1,5 +1,5 @@
 #!/usr/bin/python
-#vi:si:et:sw=4:sts=4:ts=4
+# vi:si:et:sw=4:sts=4:ts=4
 # -*- coding: UTF-8 -*-
 # -*- Mode: Python -*-
 #
@@ -18,6 +18,8 @@ import sys
 import logging
 import os
 import re
+import time
+import random
 
 from IPy import IP
 from ConfigParser import RawConfigParser
@@ -26,7 +28,41 @@ from pdns import PowerDNSBackend, DNSAnswer, DNSQuery
 DEBUG=True
 CONFIG_FILE="/etc/powerdns/fleppyb/fleppyb.ini"
 PARSE_CONFIG_ONCE=False
+#LOGFILE=False
 LOGFILE="/var/log/fleppyb.log"
+
+class SLOWDNSBackend(DNSAnswer):
+    # TODO: make logger object external
+
+    def __init__(self, options, logger):
+        self.options = options
+        self.logger = logger
+    
+    def query(self, query):
+        answer = []
+        slow_options = {}
+
+        for k,v in self.options:
+            slow_options[k] = v
+
+        if "delay" not in slow_options:
+            self.logger.error("delay not defined in slow backend")
+            sys.exit(-1)
+
+        if slow_options["delay"].split(":")[0] == "random":
+            try:
+                min = float(slow_options["delay"].split(":")[1])
+                max = float(slow_options["delay"].split(":")[2])
+            except IndexError:
+                self.logger.error("random delay must be in this form: random:min:max")
+                sys.exit(-1)
+            delay = random.uniform(min, max)
+        else:
+            delay = float(slow_options["delay"])
+        self.logger.debug("waiting %f" % delay)
+        time.sleep(delay)
+        
+        return answer
 
 class LDAPDNSBackend(DNSAnswer):
     # TODO: make logger object external
@@ -222,6 +258,13 @@ class FleppyBackend(object):
                         self.logger)
                 answer = ldap_backend.query(q)
                 break
+            if self.cfg.get(section, 'backend') == "slow":
+                self.logger.debug("Found slow backend")
+                slow_backend = SLOWDNSBackend(self.cfg.items(section),
+                        self.logger)
+                answer = slow_backend.query(q)
+                break
+
             else:
                 self.logger.warning("backend not found")
                 break
