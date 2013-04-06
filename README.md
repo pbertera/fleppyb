@@ -1,7 +1,7 @@
 Fleppyb (Flexible PowerDNS Python Backend)
 ==========================================
 
-Fleppyb is [PowerDNS pipe backend][1]. In brief Fleppyb process DNS query from the PowerDNS master process and according with matching rules can resolve the query.
+Fleppyb is a [PowerDNS pipe backend][1]. In brief Fleppyb process DNS query from the PowerDNS master process and according with matching rules can resolve the query.
 Parameters checked during the matching rule process are these provided by the **PipeBackend v.2** protocol:
 
 **Query Name:** the name whereby the query asks, for example the query performed by
