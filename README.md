@@ -1,87 +1,87 @@
 Fleppyb (Flexible PowerDNS Python Backend)
 ==========================================
 
-Fleppyb è [un pipe backend per Powerdns][1]. In breve si occupa di ricevere la query dal processo master di PowerDNS e, in base a dei criteri di matching effettuati sui parametri della query, di risolvere la query. 
-I parametri della query su cui viene effettuato il match sono quelli offerti dal protocollo di **PipeBackend** di PowebDNS e sono:
+Fleppyb is [un pipe backend per Powerdns][1]. In brief Fleppyb process DNS query from the PowerDNS master process and according with matching rules can resolve the query.
+Parameters checked during the matching rule process are these provided by the **PipeBackend v.2** protocol:
 
-**Query Name:** il nome per qui si sta facendola query, ad esempio la query:
+**Query Name:** the name whereby the query asks, for example the query performed by
 
     dig @192.168.2.20 www.google.it
 
-il Query Name sarà www.google.it
+the Query Name will be www.google.it
 
-**Query Type:** il tipo di query effettuata, ovvero il record che si sta chiedendo, ad esempio:
+**Query Type:** the record type requested by the query, for example:
 
     dig @192.168.2.20 -t MX google.it
 
-il Query Type sarà **MX**
+the Query Type will be **MX**
 
-**Remote IP:** l'indirizzo ip del richiedente della query, ad esempio:
+**Remote IP:** the IP address that performed the query:
 
     dig -b 192.168.3.11 @192.168.2.20 -t MX google.it
 
-il Remote IP sarà **192.168.3.11**
+the Remote IP will be **192.168.3.11**
 
-**Local IP:** l'indirizzo del server a cui viene richiesta la query, ad esempio:
+**Local IP:** the local IP address that received the query:
 
     dig @192.168.2.20 www.google.it
 
-il Local IP sarà **192.168.2.20**
+the Local IP will be **192.168.2.20**
 
-Tramite il backend fleppyb è possibile implementare le viste su PowerDNS oppure qualsiasi altra configurazione nella risoluzione delle query
+With this Fleppyb you can implement a *split brain* configuration or some other match against the query parameters.
 
-Configurazione
-==============
+Configuration
+=============
 
-Ci sono 2 tipi di configurazioni di effettuare:
+There is 3 steps:
 
-1. Configurare Fleppyb
-2. Configurare i Matching
-3. Configurare PowerDNS
+1. Configuring Fleppyb parameters
+2. Configuring Flappyb matching rules
+3. Configuring PowerDNS in order to use Fleppyb as a backend
 
-Configurare fleppyb.py
+Configuring Fleppyb parameters
 ----------------------
 
-Per la prima occorre editare il file fleppyb.py e modificare le seguenti variabili:
+You must edit the main file fleppyb.py configuring these variables: 
 
-* **DEBUG:** valori possibili: True o False
-* **CONFIG_FILE:** il path al file di configurazione in cui vengono specificati i criteri di match
-* **PARSE_CONFIG_ONCE:** rileggi il file sopra ad ogni query (valori possibili: True o False) oppure solo allo start. L'impostazione a True potrebbe influire sulle performance, se a False ad ogni modifica del file di match occorre riavviare PowerDNS.
-* **LOGFILE:** il file di log di fleppy: NB: powerdns deve poter scrivere questo file
+* **DEBUG:** enable/disable debugging messages, valid values: **True** or **False**
+* **CONFIG_FILE:** path of config file, the config file contains matching rules. Eg. **/etc/powerdns/fleppyb/fleppyb.conf**
+* **PARSE_CONFIG_ONCE:** parse the config file once (at startup) or at every query. This parameter can slow down performance in query resolutions. Using *True* you need to restart PowerDNS ad every Fleppyb config file changes. Valid values: **True** or **False**
+* **LOGFILE:** where Fleppyb must write logging messages. You can use a file system path or a void value (""). With a void value logging messages will be printed on stdout (useful for testing or debugging). **NB: This file path must exists and must be writable by PowerDNS user**.
 
-Configurare i query matching
-----------------------------
+Configuring query matching
+--------------------------
 
-Il file di match (definito dalla variabile `CONFIG_FILE`) ha la sintassi di un file .ini: definisce delle sezioni e per ogni sezione vengono definite delle variabili.
+The matching rules file (defined bu variable `CONFIG_FILE`) uses [file ini syntax][2]: you must define sections and section variables.
 
-E' possibile definire una sezione particolare con nome **DEFAULT** in cui vengono definite delle variabili che verranno ereditate dalle altre sezioni. Se una sezione definisce una variabile questa sovrascrive la variabile nella sezione **DEFAULT**.
-Il nome delle sezioni è particolarmente importante: tramite il nome della sezione viene definito il criterio di match della query.
-La sezione **DEFAULT** non paretecipa all'algoritmo di matching.
+You can define a section with name **DEFAULT**: In this section you can define variables that will be inherited by others sections.
+Variable defined in **DEFAULT** section can be overwritten in non-default section.
 
-Il nome della sezione deve rispettare la seguente sintassi:
+The name used in sections define the query matching criteria.
+Section name must respect this syntax:
 
 **[PREC;QUERY_NAME_REGEX:QUERY_TYPE:REMOTE_IP:LOCAL_IP]**
 
-in cui:
+Where:
 
-* **PREC:** rappresenta la precedenza della sezione: la prima sezione che matcha con i parametri della query sarà utilizzata per risolvere la query, deve essere un numero intero, piu' è alto il numero e piu' è bassa la priorità
-* **QUERY_NAME_REGEX:** è una regular expression che viene controntata con il parametro Query Name della query, la sintassi è la sintassi delle regex
-* **QUERY_TYPE:** questo valore viene confrontato con il tipo di query, puo' assumere valori A, TXT, MX, ecc.. oppure * per essere sempre verificata
-* **REMOTE_IP:** questo valore viene confrontato con l'ip del richiedente, puo' essere un indirizzo ip oppure una subnet CIDR (es: 192.168.2.0/24)
-* **LOCAL_IP:** viene confrontato con l'ip del server a cui viene fatta la richiesta, il formato è come il valore precedente
+* **PREC:** is the rule precedence: matching rules is an ordered list, first rule that match with query parameters will be used for the query resolution.
+* **QUERY_NAME_REGEX:** it's a regular expression that will be evalued against the *Query Name*. Here you can use the [Python regular expression syntax][3].
+* **QUERY_TYPE:** this value will be matched against the *Query Type*, (A, TXT, MX, etc..). You can use the special char * in order to match every query type. 
+* **REMOTE_IP:** this value will be evaluated against the client IP address requesting the query, can be an IP address or a subnet in CIDR format (Eg.: 192.168.2.0/24)
+* **LOCAL_IP:** this value will be evaluated against the destination IP address. Alsto this one can be an IP address or a subnet.
 
-Esempi
------
+Examples
+--------
 
-**[1:.*.in-addr\.arpa$:*:0.0.0.0/0:0.0.0.0/0]** Una sezione con questo nome ha:
+**[1:.*.in-addr\.arpa$:*:0.0.0.0/0:0.0.0.0/0]** With this section name you define:
 
-*   **Precedenza:** *1*
-*   **Query name regex:** *.*\.in-addr\.arpa$* (qualsiasi nome che finisce con *in-addr.arpa*)
-*   **Query Type:** *** (qualsiasi tipo di query)
-*   **Remote IP:** 0.0.0.0/0 (qualsiasi ip client)
-*   **Local IP:** 0.0.0.0/0 (qualsiasi ip server)
+*   **Precedence:** *1*
+*   **Query name regex:** \*.\*\.in-addr\.arpa$ (every name that ends with *in-addr.arpa*)
+*   **Query Type:** * (every query type)
+*   **Remote IP:** 0.0.0.0/0 (every client IP address)
+*   **Local IP:** 0.0.0.0/0 (every server IP address)
 
-Questa sezione verrà valutata per prima e verrà utilizzata per la risoluzione per tutte le query inverse (tutti nomi che finiscono per in-addr.arpa) es:
+This section will be evalued as a first rule and will match against every reverse query (every names anding with in-addr.arpa) Ex.:
 
     dig @192.168.2.20 -x 192.168.3.10
     
@@ -95,25 +95,55 @@ Query resolution
 ================
 
 **Query resolution:**</p> 
-All'interno della sezioni vanno definiti parametri per effettuare la risoluzione, i parametri possono essere:
 
-**backend:** attualmente puo' essere solo **ldap** o **slow**, specifica quale backend fleppyb deve utilizzare per la risoluzione della query
+Inside sections you can define your resolution rules, you can define differents parameters depending on backend used.
+In every sections you must define a **backend** paramether that define the backend. Unltil now only **ldap** and **static** backend are implemented
 
-SLOW Backend
-=============
-Usando il backend **slow** il backend aspetterà un delay impostato e poi risponderà con un not found.
-**slow:** delay espresso in secondi prima di rispondere, si possono usare dei decimali, es.: 0.673 oppure generare un delay random: random:0.5:30 
+Static Backend
+==============
+Using the **static** backend you can statically configure answers for query matching the section. You can define 2 variables:
+
+* **answer**: this is a three fields value separed by a semicolon (:), these fields must be: TYPE:TTL:VALUE, eg. A:300:192.168.10.100. you can define multiple response separing ansewrs with a comma (,). Eg.: 
+
+This section define a rule matching every query for the name **host.example.com** with 2 A records with dittents TTL:
+
+    [10:host\.example\.com:*:0.0.0.0/0:0.0.0.0/0]
+    backend=static
+    answer=A:300:192.168.10.20,A:900:192.168.10.22
+
+Qwering the server:
+
+    dig @172.16.18.5 host.example.com
+
+    ;; QUESTION SECTION:
+    ;host.example.com.		IN	A
+
+    ;; ANSWER SECTION:
+    host.example.com.	900	IN	A	192.168.10.22
+    host.example.com.	300	IN	A	192.168.10.20
+
+* **delay**: A delay in query response. This is a value in seconds, you can express also decimal values. You can use also random values using rand:MIN:MAX (eg. rand:3:10 will add arandom delay between 3 and 10 sec.)
+Eg.:
+
+Adding a 5 seconds delay for every query to host.example.com
+
+    [10:host\.example\.com:*:0.0.0.0/0:0.0.0.0/0]
+    delay=5
+    backend=static
+    answer=A:300:192.168.10.20,A:900:192.168.10.2
 
 LDAP Backend
 ============
-**ldap_uri:** URI del server ldap es: **ldap://localhost**
+With LDAP Backend you can define for every query matching rule the ldap server, base, credentials, attributes and query filters using these parameters: 
 
-**base:** ldap base per la query es: **dc=example,dc=com**  
-**bind_dn: **dn con cui effettuare il bind (se necessario) es: **cn=admin,dc=example,dc=com**  
-**bind_password:** password per il bind (se necessario)  
-***_attribute:** mapping degli attributi ldap, es **A_attribute=aRecord** definisce un mapping tra la entry dns **A** e l'attributo ldap **aRecord**. 
+**ldap_uri:** LDAP server URI Eg.: **ldap://localhost**
 
-**Esempi:**
+**base:** LDAP base used in query Eg.: **dc=example,dc=com**  
+**bind_dn:** LDAP bind DN used during the query (if needed). Eg.: **cn=admin.example.com**
+**bind_password:** LDAP bind password (if needed)  
+**XXX_attribute:** Attribute mapping rule, Eg.: **A_attribute=aRecord** define a mapping between the *A* attribute and the ldap attribute **aRecord** thanks to this field you can use every LDAP schema for your DNS server.
+
+**Examples:**
     MX_attribute = MxRecord  
     NS_attribute = nSRecord  
     TTL_attribute = dNSTTL  
@@ -121,42 +151,42 @@ LDAP Backend
     CNAME_attribute = cNAMERecord  
     TXT_attribute = tXTRecord  
 
-**TTL_default:** il TTL da restiture di default (se non è specificato nell'attributo definito da TTL_attribute)  
-**query**:  il query filter con cui effettuare la query ldap es: **(&(objectClass=extensibleObject)(associatedDomain=%(qname)s))**  
-**bind:** definisce se effettuare il bind oppure fare una query ldap anonima, puo' essere **False** o **True**  
- 
+**TTL_default:** default TTL (if **TTL_attribute** isn't defined) 
+**query**: LDAP query filter. Here you can use some variable extracted from the query (see *Query filter formatting* ) Ex: **(&(objectClass=extensibleObject)(associatedDomain=%(qname)s))**  
+**bind:** if False the ldap bind will be not executed. Valid values: **True** or **False**   
 
 **Query filter formatting:**
 
-il query filter puo' contenere dei formatter specifier per comporre dinamicamente la query ldap:
+the **query** parameter can contains some formatters that permit to dinamically compose the ldap query:
 
-**%(qname)s** : viene espanso con il campo Query Name  
-**%(qtype)s** : viene espanso con il campo Query Type della query  
-**%(remote_ip)s** : viene espanso con il campo Remote IP della query  
-**%(local_ip)s** : viene espanso con il campo Local IP della query
+**%(qname)s** : expanded with **Query Name**  
+**%(qtype)s** : expandend with **Query Type** 
+**%(remote_ip)s** : expanded with **Remote IP**  
+**%(local_ip)s** : expanded with **Local IP**
+**%(rqname)s** : expanded with the IP address representing the *Query Name* if we are resolving a reverse query.
 
-**%(rqname)s** : viene espanso con l'indirizzo IP rappresentante il qname se si tratta di una query inversa
+**Configuring PowerDNS**
 
-**Configurare PowerDNS**
+You neet to add to PowerDNS configuration file (**/etc/powerdns/pdns.conf**) these paramethers:
 
-Ocorre aggiungere al file di configurazione di PowerDNS (**/etc/powerdns/pdns.conf**) queste direttive:
-
+   launch=pipe
    pipe-command=/etc/powerdns/fleppyb/fleppyb.py
    pipebackend-abi-version=2
 
-**launch=pipe** definisce di utilizzare un pipe backend  
-**pipe-command** definisce il path di fleppyb.py  
-**pipebackend-abi-version=2** definisce la versione del protocollo pipebackend da utilizzare 
+* **launch=pipe** definisce di utilizzare un pipe backend  
+* **pipe-command** definisce il path di fleppyb.py  
+* **pipebackend-abi-version=2** definisce la versione del protocollo pipebackend da utilizzare 
 
-Esempi
-======
+Examples
+========
 
-Implementazione delle viste
----------------------------
+View (split brain) implementation
+---------------------------------
 
-Per le query proveninenti dalla subnet 192.168.2.0/24 viene effettuato il lookup ldap nel base **dc=internal,dc=example,dc=com**
-il resto delle query vengono risolte cercando nel base **dc=external,dc=example,dc=com**
-Di fondamentale importanza le priorità nel file di configurazione.
+Query coming from the subnet 192.168.2.0/24 will be used the LDAP tree **dc=internal,dc=example,dc=com**.
+All athers queries will be resolved searching in **dc=external,dc=example,dc=com** ldap tree.
+
+Very important is the right use of rule precendence!!.
 
 **fleppyb.ini**
 
@@ -186,7 +216,7 @@ Di fondamentale importanza le priorità nel file di configurazione.
     backend=ldap
     bind=False
 
-**Database ldap (base dc=external,dc=example,dc=com):**
+**Database ldap (tree dc=external,dc=example,dc=com):**
 
     dn: dc=external,dc=example,dc=com
     dc: external
@@ -241,7 +271,7 @@ Di fondamentale importanza le priorità nel file di configurazione.
     o: example.com
     aRecord: 83.102.11.32
 
-**Dadabase ldap (base dc=internal,dc=example,dc=com)**
+**Dadabase ldap (tree dc=internal,dc=example,dc=com)**
 
     dn: dc=internal,dc=example,dc=com
     dc: internal
@@ -296,7 +326,7 @@ Di fondamentale importanza le priorità nel file di configurazione.
     o: example.com
     aRecord: 192.168.101.3
 
-**Query da ip non nella subnet 192.168.2.0/24**
+**Query coming from an IP not in 192.168.2.0/24 subnet**
 
     dig @192.168.2.20 -b 192.168.3.20 www.example.com
     
@@ -307,31 +337,30 @@ Di fondamentale importanza le priorità nel file di configurazione.
     www.example.com.        2400    IN      CNAME   fast.example.com.
     fast.example.com.       60      IN      A       83.102.11.32
 
-**Query da ip nella subnet 192.168.2.0/24**
+**Query coming from the interna subnet (192.168.2.0/24)**
 
     dig @192.168.2.20 -b 192.168.2.50 www.example.com
     
     ;; QUESTION SECTION:
     ;www.example.com.               IN      A
     
-    ;; ANSWER SECTION:
+;; ANSWER SECTION:
     www.example.com.        2400    IN      CNAME   fast.example.com.
     fast.example.com.       60      IN      A       192.168.101.3
 
 Reverse zone
 ------------
 
-se la query è di tipo ANY o PTR e richiede un nome che finisce in in-addr.arpa
-il formatter specifier %(rqname)s viene risolto con l'ip dell'oggetto richiesto.
+If a query with type **ANY** or **PTR** asks for a name that ends with in-addr.arpa the formatter **%(rqname)** will be resolved with the IP address.
 
-Es:
+Ex:
 
 **dig -t ANY -x 192.168.2.20**
 
-effettua una query di tipo ANY per il nome 20.2.168.192.in-addr.arpa 
-**%(rqname)s viene risolto con 192.168.2.20**
+this command executes a query with type ANY and name 20.2.168.192.in-addr.arpa 
+**%(rqname)s will be resolved with 192.168.2.20**
 
-Se la query non è di tipo ANY o PTR o la richiesta non è per un *in-addr.arpa rqname è vuoto
+Example:
 
 **fleppyb.ini**
 
@@ -374,17 +403,19 @@ Se la query non è di tipo ANY o PTR o la richiesta non è per un *in-addr.arpa 
     ;; ANSWER SECTION:
     20.2.168.192.in-addr.arpa. 2400 IN      PTR     www.example.com.
 
-PowerDNS e caching
-==================
+PowerDNS and caching
+====================
 
-Se si configura fleppyb in modo da rispondere in modi diversi per lo stesso query name (ad. es. configurazione con le viste) occorre disabilitare la cache delle query in PowerDNS configurando i parametri query-cache-ttl e negquery-cache-ttl a 0.
-Il parametro cache-ttl puo' essere configurato a piacere: esegue lo store nella cache secondo tutti iparametri della query
+If you configure Fleppyb in order to provide differents answers for the same name (Ex. split brain configuration) you need to disable query caching in PowerDNS configuring query-cache-ttl e negquery-cache-ttl at 0.
+You can leave enable the cache-ttl.
 
 Testing
 
-è possibile testare a mano fleppy.py dandogli in pasto le query a mano:
+You can manually testing fleppy simulating the PIPE backend protocol:
 
     echo -ne "HELO\nQ\t20.2.168.192.in-addr.arpa\tIN\tANY\t-1\t192.168.3.13\t0.0.0.0" | /etc/powerdns/fleppyb/fleppyb.py
 
 
  [1]: http://doc.powerdns.com/backends-detail.html#pipebackend
+ [2]: http://docs.python.org/2/library/configparser.html
+ [3]: http://docs.python.org/2/library/re.html

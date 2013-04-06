@@ -28,11 +28,9 @@ from pdns import PowerDNSBackend, DNSAnswer, DNSQuery
 DEBUG=True
 CONFIG_FILE="/etc/powerdns/fleppyb/fleppyb.ini"
 PARSE_CONFIG_ONCE=False
-#LOGFILE=False
 LOGFILE="/var/log/fleppyb.log"
 
-class SLOWDNSBackend(DNSAnswer):
-    # TODO: make logger object external
+class STATICDNSBackend(DNSAnswer):
 
     def __init__(self, options, logger):
         self.options = options
@@ -40,28 +38,44 @@ class SLOWDNSBackend(DNSAnswer):
     
     def query(self, query):
         answer = []
-        slow_options = {}
+        static_options = {}
 
         for k,v in self.options:
-            slow_options[k] = v
+            static_options[k] = v
 
-        if "delay" not in slow_options:
-            self.logger.error("delay not defined in slow backend")
-            sys.exit(-1)
+        if "delay" in static_options:
 
-        if slow_options["delay"].split(":")[0] == "random":
-            try:
-                min = float(slow_options["delay"].split(":")[1])
-                max = float(slow_options["delay"].split(":")[2])
-            except IndexError:
-                self.logger.error("random delay must be in this form: random:min:max")
-                sys.exit(-1)
-            delay = random.uniform(min, max)
-        else:
-            delay = float(slow_options["delay"])
-        self.logger.debug("waiting %f" % delay)
-        time.sleep(delay)
+            if static_options["delay"].split(":")[0] == "random":
+                try:
+                    min = float(static_options["delay"].split(":")[1])
+                    max = float(static_options["delay"].split(":")[2])
+                except IndexError, e:
+                    self.logger.error("[STATIC] random delay must be in this form: random:min:max")
+                    raise e
+
+                delay = random.uniform(min, max)
+            else:
+                delay = float(static_options["delay"])
+            self.logger.debug("[STATIC] waiting %f" % delay)
+            time.sleep(delay)
         
+        if "answer" not in static_options:
+            self.logger.debug("[STATIC] no answer defined")
+            return answer
+
+      	for tmp_answer in static_options["answer"].split(","):
+            try:
+                answer_type = tmp_answer.split(":")[0]
+                answer_ttl = int(tmp_answer.split(":")[1])
+                answer_value = tmp_answer.split(":")[2]
+                answer.append(DNSAnswer(query.qname, "IN",
+                            answer_type, answer_ttl, 1, answer_value))
+            except Exception, e:
+                self.logger.error("[STATIC] error parsing %s answer" % tmp_answer)
+                self.logger.error("[STATIC] answer must be in this format: TYPE:TTL:VALUE,TYPE:TTL:VALUE")
+                self.logger.error("[STATIC] Eg. A:9932:10.102.3.1,A:9932:10.102.3.2")
+                raise e
+
         return answer
 
 class LDAPDNSBackend(DNSAnswer):
@@ -88,23 +102,23 @@ class LDAPDNSBackend(DNSAnswer):
                 query_map[v] = k.split('_attribute')[0]
 
         if "ttl_default" not in ldap_options:
-            self.logger.error("ttl_default not defined in ldap attributes mapping")
+            self.logger.error("[LDAP] ttl_default not defined in ldap attributes mapping")
             sys.exit(-1)
 
         if "cname_attribute" not in ldap_options:
-            self.logger.error("cname_attribute not defined in ldap attributes mapping")
+            self.logger.error("[LDAP] cname_attribute not defined in ldap attributes mapping")
             sys.exit(-1)
             
         try:
             ldap_conn = ldap.initialize(ldap_options['ldap_uri'])
             if ldap_options.has_key("bind") and (ldap_options['bind'] ==
                     "True" or ldap_options['bind'] == "1"):
-                self.logger.debug("tryng to bind to ldap server using credentials")
+                self.logger.debug("[LDAP] trying to bind to ldap server using credentials")
                 ldap_conn.simple_bind_s(ldap_options['bind_dn'],
                         ldap_options['bind_password'])
-                self.logger.debug("bind successful")
+                self.logger.debug("[LDAP] bind successful")
             else:
-                self.logger.debug("accessing to ldap server anonymously")
+                self.logger.debug("[LDAP] accessing to ldap server anonymously")
             # TODO:
             if 'dot_in_dn' in ldap_options:
                 dn_token = ",%s=" % ldap_options['dot_in_dn']
@@ -126,32 +140,32 @@ class LDAPDNSBackend(DNSAnswer):
                 'rqname': query.rqname
                 })
             ldap_query = ldap_query.replace("*", "\*")
-            self.logger.debug("formatted query: %s" % ldap_query)
+            self.logger.debug("[LDAP] formatted query: %s" % ldap_query)
            
             if query.qtype.lower() == "any":
                 attributes = query_map.keys()
             else:
                 if query.qtype.lower() not in attribute_map.keys():
-                    self.logger.warning("attribute for query %s not found in map" % query.qtype)
+                    self.logger.warning("[LDAP] attribute for query %s not found in map" % query.qtype)
                     return answer
                 attributes = [attribute_map[query.qtype]]
 
             attributes.append(ldap_options['ttl_attribute'])
             attributes.append(ldap_options['cname_attribute'])
-            self.logger.debug("attributes: %s" % attributes)
+            self.logger.debug("[LDAP] attributes: %s" % attributes)
             
             #TODO: scope in config file
             try:
                 res = ldap_conn.search_s(ldap_base, ldap.SCOPE_SUBTREE ,
                     ldap_query, attributes)
             except Exception, e:
-                self.logger.info("ldap query error: %s", e)
+                self.logger.info("[LDAP] ldap query error: %s", e)
                 return answer
 
             for entry in res:
                 # search for ttl attribute in LDAP otherwise use default_ttl
                 if ldap_options['ttl_attribute'] not in entry[1].keys():
-                    self.logger.debug("ttl entry (%s) not found, using default: %s" %
+                    self.logger.debug("[LDAP] ttl entry (%s) not found, using default: %s" %
                             (ldap_options['ttl_attribute'],
                                 ldap_options['ttl_default']))
                     ttl = int(ldap_options['ttl_default'])
@@ -161,12 +175,12 @@ class LDAPDNSBackend(DNSAnswer):
                 # compose the answer 
                 for attribute in entry[1].keys():
                     for att in entry[1][attribute]:
-                        self.logger.debug("found data in database: %s" % att)
+                        self.logger.debug("[LDAP] found data in database: %s" % att)
                         answer.append(DNSAnswer(query.qname, "IN",
                             query_map[attribute].upper(), ttl, 1, att))
 
         except Exception, e:
-            self.logger.exception("Exception: %s" %e)
+            self.logger.exception("[LDAP] Exception: %s" %e)
         
         return answer
 
@@ -258,11 +272,11 @@ class FleppyBackend(object):
                         self.logger)
                 answer = ldap_backend.query(q)
                 break
-            if self.cfg.get(section, 'backend') == "slow":
-                self.logger.debug("Found slow backend")
-                slow_backend = SLOWDNSBackend(self.cfg.items(section),
+            if self.cfg.get(section, 'backend') == "static":
+                self.logger.debug("Found static backend")
+                static_backend = STATICDNSBackend(self.cfg.items(section),
                         self.logger)
-                answer = slow_backend.query(q)
+                answer = static_backend.query(q)
                 break
 
             else:
