@@ -134,6 +134,7 @@ Adding a 5 seconds delay for every query to host.example.com
 
 LDAP Backend
 ============
+With this backend you can implement your DNS server using your own LDAP schema.
 With LDAP Backend you can define for every query matching rule the ldap server, base, credentials, attributes and query filters using these parameters: 
 
 **ldap_uri:** LDAP server URI Eg.: **ldap://localhost**
