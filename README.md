@@ -30,6 +30,13 @@ the Local IP will be **192.168.2.20**
 
 With this Fleppyb you can implement a *split brain* configuration or some other match against the query parameters.
 
+Features
+========
+
+At the moment of writing Fleppyb implements 2 backend:
+* **static**: a static backend that allows you to configure your dns answer in a config file, you can also add a dealy in some answers.
+* **ldap**: an ldap backend that allow you to be totally independent from your ldap schema, you can use more than one ldap server and configure differents LDAP query for different DNS requests
+
 Configuration
 =============
 
