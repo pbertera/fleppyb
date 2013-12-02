@@ -427,3 +427,7 @@ You can manually testing fleppy simulating the PIPE backend protocol:
  [1]: http://doc.powerdns.com/backends-detail.html#pipebackend
  [2]: http://docs.python.org/2/library/configparser.html
  [3]: http://docs.python.org/2/library/re.html
+
+
+[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/pbertera/fleppyb/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+
